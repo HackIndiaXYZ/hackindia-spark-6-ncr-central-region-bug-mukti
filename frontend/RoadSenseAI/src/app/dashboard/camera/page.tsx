@@ -15,21 +15,30 @@ import {
   RefreshCcw, 
   VideoOff,
   ShieldAlert,
-  Play
+  Play,
+  RotateCcw
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from 'react';
+
+const getApiBase = () => {
+  if (typeof window === 'undefined') return 'http://localhost:5000';
+  const hostname = window.location.hostname;
+  return `http://${hostname}:5000`;
+};
 
 export default function CameraPage() {
   const [isLive, setIsLive] = useState(false);
   const [stats, setStats] = useState({ violations: 0, recent: [] as any[] });
   const [yoloStatus, setYoloStatus] = useState<'online' | 'offline' | 'linking'>('linking');
   const [feedKey, setFeedKey] = useState(0);
+  const [cameras, setCameras] = useState<{id: string, name: string}[]>([]);
+  const [selectedSource, setSelectedSource] = useState<string>("videos/sample.mp4");
+  const [processedFrame, setProcessedFrame] = useState<string | null>(null);
   
-  const getApiBase = () => {
-    if (typeof window === 'undefined') return 'http://localhost:5000';
-    const hostname = window.location.hostname;
-    return `http://${hostname}:5000`;
-  };
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const requestRef = useRef<number | null>(null);
+  const isProcessingRef = useRef(false);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -46,11 +55,125 @@ export default function CameraPage() {
 
   useEffect(() => {
     fetchStats();
+    
+    // Enumerate client devices (mobile cameras, webcams)
+    const getDevices = async () => {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+        setYoloStatus('offline');
+        console.warn("Media Devices API not available. Ensure you're using HTTPS or localhost.");
+        return;
+      }
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices
+          .filter(device => device.kind === 'videoinput')
+          .map(device => ({ id: device.deviceId, name: device.label || `Camera ${device.deviceId.slice(0, 5)}` }));
+        setCameras(videoDevices);
+      } catch (err) {
+        console.error("Error listing cameras:", err);
+      }
+    };
+    getDevices();
+
     if (isLive) {
       const interval = setInterval(fetchStats, 2000);
       return () => clearInterval(interval);
     }
   }, [isLive, fetchStats]);
+
+  const processFrame = useCallback(async () => {
+    if (!isLive) return;
+
+    if (!isProcessingRef.current && videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const context = canvas.getContext('2d');
+
+      if (video.readyState === video.HAVE_ENOUGH_DATA && context) {
+        isProcessingRef.current = true;
+        
+        // 🟢 Accuracy Re-Sync: Higher resolution for better AI feature extraction
+        canvas.width = 640;
+        canvas.height = 480;
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        try {
+          // 🟢 Optimization: Use binary Blob instead of Base64
+          canvas.toBlob(async (blob) => {
+            if (!blob) {
+              isProcessingRef.current = false;
+              return;
+            }
+            
+            try {
+              const response = await fetch(`${getApiBase()}/process_client_frame`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/octet-stream' },
+                body: blob
+              });
+              
+              if (response.ok) {
+                const data = await response.json();
+                setProcessedFrame(data.image);
+              }
+            } catch (err) {
+              console.error("Processing error:", err);
+            } finally {
+              isProcessingRef.current = false;
+            }
+          }, 'image/jpeg', 0.6); // 🟢 Quality increased to 0.6 for accuracy
+        } catch (err) {
+          console.error("Canvas toBlob error:", err);
+          isProcessingRef.current = false;
+        }
+      }
+    }
+    
+    // Always schedule the next check as long as we're live
+    if (isLive) {
+      requestRef.current = requestAnimationFrame(processFrame);
+    }
+  }, [isLive]);
+
+  useEffect(() => {
+    if (isLive && selectedSource !== "videos/sample.mp4") {
+      const startCamera = async () => {
+        try {
+          // Reset backend tracker ONCE when scan starts
+          await fetch(`${getApiBase()}/reset_client_tracker`, { method: 'POST' });
+          
+          const constraints = {
+            video: { 
+              deviceId: selectedSource ? { exact: selectedSource } : undefined,
+              width: { ideal: 640 },
+              height: { ideal: 480 }
+            }
+          };
+          
+          const stream = await navigator.mediaDevices.getUserMedia(constraints);
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            videoRef.current.play();
+            requestRef.current = requestAnimationFrame(processFrame);
+          }
+        } catch (err) {
+          console.error("Camera start error:", err);
+          setIsLive(false);
+        }
+      };
+      startCamera();
+    } else if (!isLive) {
+      if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+        videoRef.current.srcObject = null;
+      }
+      if (requestRef.current) {
+        cancelAnimationFrame(requestRef.current);
+      }
+      setProcessedFrame(null);
+    }
+  }, [isLive, selectedSource]); // processFrame removed to prevent infinite loops
 
   const toggleScan = () => {
     if (!isLive) {
@@ -61,46 +184,105 @@ export default function CameraPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-2">
-        <h2 className="text-3xl font-black tracking-tighter text-primary flex items-center gap-3">
-          SENTINEL VISION 
-          <Badge variant="outline" className="text-xs uppercase px-3 py-1 border-primary/30">Active Feed v1.0</Badge>
-        </h2>
-        <p className="text-muted-foreground font-medium italic flex items-center gap-2">
-          <Wifi className="h-3 w-3 animate-pulse text-primary" /> 
-          AI Direct Link: {isLive ? 'ESTABLISHED' : 'STANDBY'}
-        </p>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+        <div className="flex flex-col gap-2">
+          <h2 className="text-3xl font-black tracking-tighter text-primary flex items-center gap-3">
+            SENTINEL VISION 
+            <Badge variant="outline" className="text-xs uppercase px-3 py-1 border-primary/30">Active Feed v1.0</Badge>
+          </h2>
+          <p className="text-muted-foreground font-medium italic flex items-center gap-2">
+            <Wifi className="h-3 w-3 animate-pulse text-primary" /> 
+            AI Direct Link: {isLive ? 'ESTABLISHED' : 'STANDBY'}
+          </p>
+        </div>
+        <div className="flex items-center gap-3 bg-black/50 p-3 rounded-xl border border-primary/20">
+           <Camera className="h-5 w-5 text-primary" />
+           <div className="flex flex-col">
+             <label className="text-[10px] text-muted-foreground uppercase font-bold mb-1 tracking-widest">Video Source</label>
+             <select 
+               className="bg-black border border-primary/20 text-white text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2"
+               value={selectedSource}
+               onChange={(e) => setSelectedSource(e.target.value)}
+               disabled={isLive}
+             >
+               <option value="videos/sample.mp4">Sample Road Feed</option>
+               {cameras.map(cam => (
+                 <option key={cam.id} value={cam.id}>{cam.name}</option>
+               ))}
+               {cameras.length === 0 && (
+                 <option disabled>
+                   {typeof window !== 'undefined' && !navigator.mediaDevices ? '⚠️ Secure context (HTTPS) required' : 'No cameras found'}
+                 </option>
+               )}
+             </select>
+           </div>
+           {cameras.length === 0 && typeof window !== 'undefined' && navigator.mediaDevices && (
+             <Button 
+               variant="ghost" 
+               size="icon" 
+               className="h-8 w-8 text-primary hover:text-primary/80"
+               onClick={async () => {
+                 try {
+                   await navigator.mediaDevices.getUserMedia({ video: true });
+                   window.location.reload();
+                 } catch (e) {}
+               }}
+             >
+               <RotateCcw className="h-4 w-4" />
+             </Button>
+           )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
-          <Card className="relative overflow-hidden border-2 shadow-2xl bg-black aspect-video flex items-center justify-center rounded-2xl group">
+          <Card className="relative overflow-hidden border-2 shadow-2xl bg-black min-h-[450px] sm:aspect-video flex items-center justify-center rounded-3xl group">
+            <video ref={videoRef} className="hidden" playsInline muted />
+            <canvas ref={canvasRef} className="hidden" />
+            
             {isLive ? (
-              <img 
-                key={feedKey}
-                src={`${getApiBase()}/video_feed?t=${feedKey}`} 
-                alt="Dashcam AI Stream" 
-                className="w-full h-full object-contain"
-                onError={() => setYoloStatus('offline')}
-              />
-            ) : (
-              <div className="text-center p-12 space-y-6">
-                <div className="p-6 rounded-full bg-primary/10 border border-primary/20 inline-block">
-                  <VideoOff className="h-12 w-12 text-primary/40" />
+              selectedSource === "videos/sample.mp4" ? (
+                <img 
+                  key={feedKey}
+                  src={`${getApiBase()}/video_feed?source=${selectedSource}&t=${feedKey}`} 
+                  alt="Dashcam AI Stream" 
+                  className="w-full h-full object-contain"
+                  onError={() => setYoloStatus('offline')}
+                />
+              ) : (
+                <img 
+                  src={processedFrame || ''} 
+                  alt="Live Mobile Stream" 
+                  className={`w-full h-full object-contain ${!processedFrame ? 'hidden' : ''}`}
+                />
+              )
+            ) : null}
+
+            {!isLive && (
+              <div className="text-center p-8 sm:p-12 space-y-8">
+                <div className="p-8 rounded-full bg-primary/10 border border-primary/20 inline-block animate-pulse">
+                  <VideoOff className="h-16 w-16 text-primary/40" />
                 </div>
                 <div>
-                  <h4 className="text-xl font-bold text-white mb-2">Feed Dormant</h4>
-                  <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                    The AI Sentinel is ready to process the static road feed.
+                  <h4 className="text-2xl font-black text-white mb-3">SENTINEL STANDBY</h4>
+                  <p className="text-sm text-muted-foreground max-w-sm mx-auto font-medium">
+                    The AI System is ready. Select a camera source and engage the vision link.
                   </p>
                 </div>
                 <Button 
                   onClick={toggleScan}
-                  className="bg-primary hover:bg-primary/90 text-black font-black px-8 py-6 rounded-xl animate-shimmer bg-[linear-gradient(110deg,#000103,45%,#1e2631,55%,#000103)] bg-[length:200%_100%] transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50"
+                  className="bg-primary hover:bg-primary/90 text-black font-black px-12 py-8 text-lg rounded-2xl shadow-[0_0_30px_rgba(255,255,255,0.1)] transition-all hover:scale-105 active:scale-95"
                 >
-                  <Play className="h-5 w-5 mr-2 fill-current" />
-                  START AI SCAN
+                  <Play className="h-6 w-6 mr-3 fill-current" />
+                  ENGAGE AI SCAN
                 </Button>
+              </div>
+            )}
+
+            {isLive && !processedFrame && selectedSource !== "videos/sample.mp4" && (
+              <div className="flex flex-col items-center gap-3">
+                <RefreshCcw className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-xs font-mono text-primary animate-pulse uppercase tracking-widest">Waking Sentinel...</p>
               </div>
             )}
 
@@ -113,7 +295,7 @@ export default function CameraPage() {
                 </Badge>
                 <Badge className="bg-blue-600/80 backdrop-blur-md text-white border-0 py-1.5 px-3 font-mono text-[10px] uppercase flex gap-2 items-center">
                   <Activity className="h-3 w-3" />
-                  SOURCE: SAMPLE_ROAD_MP4
+                  SOURCE: {selectedSource === 'videos/sample.mp4' ? 'SAMPLE_ROAD_MP4' : 'LIVE_MOBILE_INPUT'}
                 </Badge>
               </div>
             )}
@@ -136,7 +318,7 @@ export default function CameraPage() {
             <ShieldCheck className="h-4 w-4 text-primary" />
             <AlertTitle className="font-bold text-primary">System Integrity Check</AlertTitle>
             <AlertDescription className="text-xs">
-              AI YOLO Engine is processing the sample video path. All detections are recorded to the central mission database.
+              AI YOLO Engine is processing the live stream from the {selectedSource === 'videos/sample.mp4' ? 'sample video' : 'mobile camera'}. All detections are recorded to the central mission database.
             </AlertDescription>
           </Alert>
         </div>
@@ -201,3 +383,4 @@ export default function CameraPage() {
     </div>
   );
 }
+
