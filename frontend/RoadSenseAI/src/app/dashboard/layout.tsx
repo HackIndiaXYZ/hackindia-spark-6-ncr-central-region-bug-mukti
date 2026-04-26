@@ -63,12 +63,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </Link>
                 </>
               )}
-              {isAdmin && (
-                <Link href="/dashboard/users" className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-muted transition-colors">
-                  <User className="h-4 w-4" />
-                  User Management
+              {/* {isAdmin && (
+                // <Link href="/dashboard/users" className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-muted transition-colors">
+                //   <User className="h-4 w-4" />
+                //   User Management
                 </Link>
-              )}
+              )} */}
               <Link href="/dashboard/settings" className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-muted transition-colors">
                 <Settings className="h-4 w-4" />
                 Settings
