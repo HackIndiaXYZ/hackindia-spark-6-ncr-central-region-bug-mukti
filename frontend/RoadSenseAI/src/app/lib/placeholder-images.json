@@ -1,0 +1,28 @@
+{
+  "placeholderImages": [
+    {
+      "id": "hero-bg",
+      "description": "Busy Indian city street with traffic",
+      "imageUrl": "/public/header.png",
+      "imageHint": "india traffic"
+    },
+    {
+      "id": "parking-violation",
+      "description": "Two wheeler parked in no parking zone",
+      "imageUrl": "https://picsum.photos/seed/no-parking/600/400",
+      "imageHint": "no parking"
+    },
+    {
+      "id": "helmet-violation",
+      "description": "Rider without helmet on a scooter",
+      "imageUrl": "https://picsum.photos/seed/helmet/600/400",
+      "imageHint": "no helmet"
+    },
+    {
+      "id": "map-placeholder",
+      "description": "Detailed Map of Delhi NCR",
+      "imageUrl": "https://picsum.photos/seed/delhi-ncr-map/1200/800",
+      "imageHint": "delhi map"
+    }
+  ]
+}

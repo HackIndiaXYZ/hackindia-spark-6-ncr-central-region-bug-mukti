@@ -1,0 +1,201 @@
+/* --- CSS Variables for Easy Theming --- */
+:root {
+    --bg-color: #f3f4f6;
+    --text-main: #111827;
+    --text-muted: #6b7280;
+    --accent-red: #ef4444;
+    --accent-blue: #4f46e5;
+    --glass-bg: rgba(255, 255, 255, 0.95);
+    --glass-border: rgba(229, 231, 235, 1);
+    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    --border-radius: 16px;
+}
+
+/* --- Base Reset & Typography --- */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    padding: 1rem;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* --- Reusable Components --- */
+.glass-panel {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
+}
+
+.flex-grow { flex: 1; display: flex; flex-direction: column; }
+.border-bottom { border-bottom: 1px solid var(--glass-border); }
+
+/* --- Navigation Header --- */
+.top-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.logo-area {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.logo-icon {
+    width: 40px;
+    height: 40px;
+    background-color: var(--accent-blue);
+    color: white;
+    border-radius: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: 700;
+    font-size: 1.2rem;
+}
+
+h1 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.5px; }
+
+.status-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background-color: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    padding: 0.5rem 1rem;
+    border-radius: 9999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #065f46;
+}
+
+.pulse-dot {
+    width: 10px;
+    height: 10px;
+    background-color: #10b981;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.2); }
+}
+
+/* --- Main Layout Grid --- */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr; /* Mobile default: 1 column */
+    gap: 1.5rem;
+    flex: 1;
+}
+
+/* Desktop override */
+@media (min-width: 992px) {
+    .dashboard-grid { grid-template-columns: 2fr 1fr; }
+    body { padding: 2rem; }
+}
+
+/* --- Video Section --- */
+.video-section { padding: 1rem; }
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding: 0.5rem;
+}
+
+.panel-header h2 { font-size: 1.1rem; font-weight: 600; }
+
+.cam-tag {
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: #f3f4f6;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    color: var(--text-muted);
+}
+
+.video-wrapper {
+    width: 100%;
+    border-radius: 12px;
+    overflow: hidden;
+    background-color: #000;
+    border: 1px solid #e5e7eb;
+}
+
+.video-wrapper img {
+    width: 100%;
+    height: auto;
+    display: block;
+    aspect-ratio: 16/9;
+    object-fit: cover;
+}
+
+/* --- Analytics & Metrics --- */
+.analytics-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.metric-card {
+    padding: 2rem 1rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.border-top-red::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    background-color: var(--accent-red);
+}
+
+.metric-card h3 { font-size: 0.85rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 1px; margin-bottom: 0.5rem;}
+.metric-value { font-size: 4.5rem; font-weight: 800; color: #111827; line-height: 1; margin-bottom: 0.5rem; }
+.metric-card p { font-size: 0.85rem; color: var(--text-muted); }
+
+/* --- Activity Log --- */
+.log-card { overflow: hidden; max-height: 400px; display: flex; flex-direction: column; }
+.log-card .panel-header { padding: 1rem 1.5rem; margin-bottom: 0; }
+.log-container { padding: 1rem; overflow-y: auto; flex: 1; }
+.log-list { list-style: none; display: flex; flex-direction: column; gap: 0.75rem; }
+
+.log-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #fef2f2;
+    border: 1px solid #fee2e2;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    animation: slideIn 0.3s ease-out forwards;
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.log-id { font-weight: 600; color: #991b1b; font-size: 0.9rem; }
+.log-time { font-size: 0.75rem; font-weight: 700; background: #fee2e2; color: #b91c1c; padding: 0.2rem 0.5rem; border-radius: 4px; }
+.empty-log { text-align: center; color: var(--text-muted); font-size: 0.9rem; padding: 2rem 0; }

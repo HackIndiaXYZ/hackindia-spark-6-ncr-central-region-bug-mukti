@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>RoadSense AI | Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    
+    <header class="top-nav glass-panel">
+        <div class="logo-area">
+            <div class="logo-icon">RS</div>
+            <h1>RoadSense AI</h1>
+        </div>
+        <div class="status-badge">
+            <div class="pulse-dot"></div>
+            <span>DeepSORT Active</span>
+        </div>
+    </header>
+
+    <main class="dashboard-grid">
+        
+        <section class="video-section glass-panel">
+            <div class="panel-header">
+                <h2>Live Traffic Feed</h2>
+                <span class="cam-tag">Cam 01 - Tracking</span>
+            </div>
+            <div class="video-wrapper">
+                <img src="{{ url_for('video_feed') }}" alt="Live Feed Offline">
+            </div>
+        </section>
+
+        <aside class="analytics-section">
+            
+            <div class="metric-card glass-panel border-top-red">
+                <h3>Wrong-Way Incidents</h3>
+                <div class="metric-value" id="violation-count">0</div>
+                <p>Vehicles traveling against traffic flow</p>
+            </div>
+
+            <div class="log-card glass-panel flex-grow">
+                <div class="panel-header border-bottom">
+                    <h2>Recent Violations</h2>
+                </div>
+                <div class="log-container">
+                    <ul id="violation-log" class="log-list">
+                        <li class="empty-log">Monitoring traffic vectors...</li>
+                    </ul>
+                </div>
+            </div>
+
+        </aside>
+    </main>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
